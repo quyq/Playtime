@@ -23,20 +23,21 @@ namespace PlayTime
         public const int INET_TIME = 60 * 30;     //30min
         public const int PLAYER_TIME = 60 * 30;   //30min
         public const int REST_TIME = 60 * 15;     //15min
-        public const int TIMER_INTERVAL = 10;     //10 seconds
+        public const int TIMER_INTERVAL = 1;     //1 seconds
 
         private int tInet, tPlayer, tOther, tRest, date;
         public Button button1;
+        public Label label1;
         private Timer time = new Timer();
 
         [DllImport("Kernel32.dll")]
         public static extern void GetLocalTime(ref SYSTEMTIME pst);
-        [DllImport("User32.dll")]
-        public static extern Int32 SetFocus(int hWnd);
+        /*[DllImport("User32.dll")]
+        public static extern Int32 SetFocus(int hWnd);*/
         [DllImport("User32.dll")]
         public static extern Int32 FindWindow(String lpClassName, String lpWindowName);
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern Int32 FindWindowEx(int hWndParent, int hWndChildAfter, String lpClassName, String lpWindowName);
+        /*[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern Int32 FindWindowEx(int hWndParent, int hWndChildAfter, String lpClassName, String lpWindowName);*/
         [DllImport("User32.dll")]
         public static extern Int32 SetForegroundWindow(int hWnd);
         [DllImport("User32.dll")]
@@ -49,6 +50,20 @@ namespace PlayTime
         public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int MapVirtualKey(int uCode, int uMapType);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+
+        /*//disable close, refer to https://stackoverflow.com/questions/7301825/windows-forms-how-to-hide-close-x-button
+        private const int CP_NOCLOSE_BUTTON = 0x200;
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams myCp = base.CreateParams;
+                myCp.ClassStyle = myCp.ClassStyle | CP_NOCLOSE_BUTTON;
+                return myCp;
+            }
+        }*/
 
         public void updateReg(int flag)  //flag-0:for read and 1 for write
         {
@@ -110,12 +125,12 @@ namespace PlayTime
 
         private void timerHandler(object sender, EventArgs e)
         {
-            int hWnd1 = 0, hWnd2 = 0;
+            int hWnd1 = 0, hWnd2 = 0, hWnd3 = 0;
 
             time.Stop();
             if (this.time.Interval == 500)
             {
-                this.Visible = false; //hide the form
+                //this.Visible = false; //hide the form
                 this.time.Interval = 1000 * TIMER_INTERVAL;
             }
 
@@ -127,9 +142,10 @@ namespace PlayTime
             }
             else tRest -= TIMER_INTERVAL;
 
-            hWnd1 = FindWindow("MozillaUIWindowClass", null);
+            hWnd1 = FindWindow("MozillaWindowClass", null);
             hWnd2 = FindWindow("IEFrame", null);
-            if ((hWnd1 != 0) || (hWnd2 != 0))
+            hWnd3 = FindWindow("Chrome_WidgetWin_1", null);
+            if ((hWnd1 != 0) || (hWnd2 != 0) || (hWnd3 !=0))
             {
                 if (tInet == 60)
                 {
@@ -158,6 +174,7 @@ namespace PlayTime
                 }
                 else tInet -= TIMER_INTERVAL;
             }
+            label1.Text = (tInet/60).ToString() + ":" + (tInet%60).ToString();
 
             hWnd1 = FindWindow("MediaPlayerClassicW", null);
             hWnd2 = FindWindow("WMPlayerApp", null);
@@ -184,16 +201,26 @@ namespace PlayTime
 
         public KidControl()
         {
-            this.Text = "Be a Good Kid !";
+            this.Text = "tick";
+            this.Size = new Size(160, 80);
+            //disable resize, refer https://stackoverflow.com/questions/7970262/disable-resizing-of-a-windows-forms-form
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            /*this.MaximizeBox = false;
+            this.MinimizeBox = false;*/
+            this.ControlBox = false;
+            this.ShowInTaskbar = false;
             InitializeMyTimer();
             updateReg(0);
 
             button1 = new Button();
-            button1.Size = new Size(160, 40);
+            button1.Size = new Size(60, 20);
             button1.Location = new Point(10, 10);
-            button1.Text = "";
+            button1.Text = "OK";
             this.Controls.Add(button1);
             button1.Click += new EventHandler(button1_Click);
+            label1 = new Label();
+            label1.Location = new Point(80, 10);
+            this.Controls.Add(label1);
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -204,6 +231,17 @@ namespace PlayTime
         [STAThread]
         static void Main(string[] args)
         {
+            //only start one instance, refer to https://stackoverflow.com/questions/444430/how-do-i-focus-a-foreign-window
+            System.Diagnostics.Process me = System.Diagnostics.Process.GetCurrentProcess();
+            System.Diagnostics.Process[] myProcesses = System.Diagnostics.Process.GetProcessesByName(me.ProcessName);
+            foreach (System.Diagnostics.Process p in myProcesses)
+            {
+                if (p.Id != me.Id)
+                {
+                    SwitchToThisWindow(p.MainWindowHandle, true);
+                    return;
+                }
+            }
             Application.Run(new KidControl());
         }
     }
